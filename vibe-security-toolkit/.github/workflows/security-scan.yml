@@ -1,0 +1,85 @@
+name: VibeCoding Security Scan
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  gitleaks:
+    name: Gitleaks — Historial Git completo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (historial completo)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --config .gitleaks.toml --verbose --redact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  ci-secret-check:
+    name: CI Secret Checker — Patrones Vibe Coding
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run VibeCoding Secret Checker
+        run: |
+          python3 vibe-security-toolkit/ci_secret_check.py \
+            --path . \
+            --fail-on high
+        continue-on-error: false
+
+      - name: Output JSON report (artifact)
+        if: always()
+        run: |
+          python3 vibe-security-toolkit/ci_secret_check.py \
+            --path . \
+            --fail-on none \
+            --json > secret-check-report.json || true
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-check-report
+          path: secret-check-report.json
+          retention-days: 30
+
+  summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [gitleaks, ci-secret-check]
+    if: failure()
+    steps:
+      - name: Print remediation guide
+        run: |
+          echo "::error::🔴 Se detectaron secretos o patrones inseguros."
+          echo ""
+          echo "PASOS DE REMEDIACIÓN:"
+          echo "1. Rota inmediatamente todas las claves detectadas."
+          echo "2. Elimina del historial git:"
+          echo "   git filter-repo --path <archivo> --invert-paths"
+          echo "   # o: https://rtyley.github.io/bfg-repo-cleaner/"
+          echo "3. Añade a .gitignore:"
+          echo "   .env"
+          echo "   .env.local"
+          echo "   .env.production"
+          echo "4. Para Supabase: habilita RLS en TODAS las tablas."
+          echo "5. Nunca uses service_role en variables VITE_ o NEXT_PUBLIC_."
