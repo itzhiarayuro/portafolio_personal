@@ -23,6 +23,7 @@ from notification_templates import (
     generate_initial_notification,
     generate_followup,
 )
+from github_secrets_dorks import generate_github_dorks, generate_markdown_report as generate_github_md
 
 
 BANNER = """
@@ -207,6 +208,27 @@ def run_workflow(domain: str, company: str, output_dir: Path, analyze_url: str) 
     print(f"  ✓ Email inicial generado (ES)")
     print(f"  ✓ Email de seguimiento generado")
     print(f"  ✓ Guardado en: {notification_path}")
+
+    # ─────────────────────────────────────────────────
+    # PASO 5: GitHub Secrets Dorks
+    # ─────────────────────────────────────────────────
+    step_banner(5, "GITHUB SECRETS DORKS (basado en CVE-2025-48757 + hallazgos WIRED 2026)")
+
+    github_data = generate_github_dorks()
+    gh_json_path = output_dir / "github_secrets_dorks.json"
+    gh_json_path.write_text(
+        json.dumps(github_data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    gh_md_path = output_dir / "github_secrets_dorks.md"
+    generate_github_md(github_data, gh_md_path)
+
+    print(f"  ✓ {github_data['metadata']['total_queries']} consultas GitHub Code Search generadas")
+    print(f"  ✓ JSON: {gh_json_path}")
+    print(f"  ✓ Markdown: {gh_md_path}")
+    print(f"\n  Categorías críticas:")
+    for cat_name, cat in github_data["categories"].items():
+        if cat["severity"] == "CRITICAL":
+            print(f"    🔴 {cat['description'][:55]}: {len(cat['queries'])} queries")
 
     # ─────────────────────────────────────────────────
     # RESUMEN FINAL

@@ -29,48 +29,59 @@ DORK_CATEGORIES = {
     "admin_exposure": {
         "description": "Paneles de administración expuestos",
         "severity": "HIGH",
+        "cve_ref": None,
         "templates": [
             'site:{platform} intitle:"admin" "{company}"',
             'site:{platform} inurl:admin "{company}"',
             'site:{platform} inurl:dashboard "{company}"',
             'site:{platform} intitle:"login" inurl:admin "{company}"',
+            'site:{platform} inurl:/admin/users "{company}"',
         ],
     },
     "config_files": {
-        "description": "Archivos de configuración expuestos",
+        "description": "Archivos de configuración y secretos expuestos",
         "severity": "CRITICAL",
+        "cve_ref": "CVE-2025-48757",
         "templates": [
             'site:{platform} filetype:env "{company}"',
             'site:{platform} inurl:.env "{company}"',
             'site:{platform} "SUPABASE_ANON_KEY" "{company}"',
-            'site:{platform} "VITE_SUPABASE" "{company}"',
+            'site:{platform} "VITE_SUPABASE_SERVICE_ROLE" "{company}"',
+            'site:{platform} "VITE_SUPABASE" "service_role" "{company}"',
             'site:{platform} "REACT_APP_" filetype:js "{company}"',
             'site:{platform} "firebase" "apiKey" "{company}"',
+            'site:{platform} "OPENAI_API_KEY" "{company}"',
+            'site:{platform} "sk-proj-" "{company}"',
         ],
     },
     "api_exposure": {
         "description": "APIs sin autenticación aparente",
         "severity": "HIGH",
+        "cve_ref": None,
         "templates": [
             'site:{platform} inurl:api/users "{company}"',
             'site:{platform} inurl:api/admin "{company}"',
             'site:{platform} inurl:api/data "{company}"',
             'site:{platform} "\"email\"" "\"password\"" inurl:api "{company}"',
+            'site:{platform} inurl:/rest/v1/ "{company}"',
         ],
     },
     "shadow_it": {
         "description": "Shadow IT - apps no inventariadas",
         "severity": "MEDIUM",
+        "cve_ref": None,
         "templates": [
             'site:{platform} "{company}"',
             'site:{platform} "{domain}"',
             'site:{platform} "{company}" inurl:app',
             'site:{platform} "{company}" intitle:dashboard',
+            'site:{platform} "{company}" intitle:portal',
         ],
     },
     "vcs_exposure": {
         "description": "Sistemas de control de versiones expuestos",
         "severity": "HIGH",
+        "cve_ref": None,
         "templates": [
             'site:{platform} inurl:.git "{company}"',
             'site:{platform} inurl:.svn "{company}"',
@@ -78,22 +89,38 @@ DORK_CATEGORIES = {
         ],
     },
     "database_exposure": {
-        "description": "Credenciales de base de datos expuestas",
+        "description": "Credenciales de base de datos y RLS deshabilitado",
         "severity": "CRITICAL",
+        "cve_ref": "CVE-2025-48757",
         "templates": [
             'site:{platform} "supabase.co" "service_role" "{company}"',
+            'site:{platform} "supabase.co" "USING (true)" "{company}"',
             'site:{platform} "mongodb+srv" "{company}"',
             'site:{platform} "DATABASE_URL" "{company}"',
             'site:{platform} "postgres://" "{company}"',
+            'site:{platform} "ALTER TABLE" "DISABLE ROW LEVEL SECURITY" "{company}"',
         ],
     },
     "information_disclosure": {
-        "description": "Divulgación de información sensible",
+        "description": "Divulgación de información sensible y errores",
         "severity": "MEDIUM",
+        "cve_ref": None,
         "templates": [
             'site:{platform} intitle:"error" "{company}"',
             'site:{platform} "stack trace" "{company}"',
             'site:{platform} "Internal Server Error" "{company}"',
+            'site:{platform} "supabase" "anon" "JWT" "{company}"',
+        ],
+    },
+    "rls_and_auth_bypass": {
+        "description": "RLS deshabilitado / bypass de autenticación (patrón CVE-2025-48757)",
+        "severity": "CRITICAL",
+        "cve_ref": "CVE-2025-48757",
+        "templates": [
+            'site:{platform} inurl:/rest/v1/users "apikey" "{company}"',
+            'site:{platform} "enable_rls" "false" "{company}"',
+            'site:{platform} inurl:supabase "policy" "USING (true)" "{company}"',
+            'site:{platform} "createClient" "service_role" "{company}"',
         ],
     },
 }
@@ -120,6 +147,7 @@ def generate_dorks(domain: str, company: str) -> dict:
         results["categories"][cat_name] = {
             "description": cat_data["description"],
             "severity": cat_data["severity"],
+            "cve_ref": cat_data.get("cve_ref"),
             "dorks": [],
         }
         for platform_name, platform_domain in VIBE_PLATFORMS.items():
