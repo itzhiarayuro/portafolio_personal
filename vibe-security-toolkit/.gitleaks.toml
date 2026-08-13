@@ -1,0 +1,128 @@
+# VibeCoding Security Toolkit — Configuración de Gitleaks
+# Extiende las reglas por defecto + reglas específicas de Vibe Coding
+# Basado en CVE-2025-48757, WIRED May-2026 y hallazgos públicos.
+#
+# Uso:
+#   gitleaks detect --source . --config .gitleaks.toml --verbose
+#   gitleaks protect --source . --config .gitleaks.toml  # pre-commit
+
+title = "VibeCoding Gitleaks Config"
+
+[extend]
+# Extiende las reglas por defecto de Gitleaks
+useDefault = true
+
+# ─────────────────────────────────────────────────────────────
+# REGLAS ESPECÍFICAS DE VIBE CODING
+# ─────────────────────────────────────────────────────────────
+
+[[rules]]
+id = "supabase-service-role-jwt"
+description = "Supabase service_role JWT — riesgo crítico (CVE-2025-48757)"
+regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'''
+keywords = ["service_role", "SERVICE_ROLE"]
+severity = "critical"
+tags = ["supabase", "jwt", "vibe-coding", "CVE-2025-48757"]
+
+  [rules.allowlist]
+  description = "Permite JWTs de ejemplo o documentación"
+  regexes = [
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.example''',
+    '''your[-_]jwt[-_]here''',
+  ]
+
+[[rules]]
+id = "supabase-service-role-env-var"
+description = "SUPABASE_SERVICE_ROLE_KEY en variable de entorno"
+regex = '''(?i)(SUPABASE_SERVICE_ROLE_KEY|VITE_SUPABASE_SERVICE_ROLE|NEXT_PUBLIC_SUPABASE_SERVICE_ROLE)\s*[=:]\s*["']?([A-Za-z0-9._\-]{20,})'''
+severity = "critical"
+tags = ["supabase", "env", "vibe-coding"]
+
+[[rules]]
+id = "supabase-rls-disabled"
+description = "RLS deshabilitado — patrón CVE-2025-48757"
+regex = '''(?i)(DISABLE ROW LEVEL SECURITY|USING\s*\(\s*true\s*\)|enable_rls\s*=\s*false)'''
+severity = "critical"
+tags = ["supabase", "rls", "CVE-2025-48757"]
+
+  [rules.allowlist]
+  description = "Permite en documentación y comentarios"
+  regexes = ['''#.*USING\s*\(\s*true\s*\)''', '''\/\/.*USING''']
+
+[[rules]]
+id = "stripe-live-key"
+description = "Stripe production secret key (sk_live_)"
+regex = '''sk_live_[A-Za-z0-9]{24,}'''
+severity = "critical"
+tags = ["stripe", "payment", "vibe-coding"]
+
+[[rules]]
+id = "openai-project-key"
+description = "OpenAI project API key (sk-proj-)"
+regex = '''sk-proj-[A-Za-z0-9_\-]{40,}'''
+severity = "critical"
+tags = ["openai", "llm", "vibe-coding"]
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic/Claude API key (sk-ant-)"
+regex = '''sk-ant-[A-Za-z0-9_\-]{40,}'''
+severity = "critical"
+tags = ["anthropic", "claude", "llm", "vibe-coding"]
+
+[[rules]]
+id = "xai-api-key"
+description = "xAI (Grok) API key"
+regex = '''xai-[A-Za-z0-9]{40,}'''
+severity = "critical"
+tags = ["xai", "grok", "llm"]
+
+[[rules]]
+id = "vite-secret-env"
+description = "Variable VITE_ exponiendo secret — accesible desde el navegador"
+regex = '''(?i)VITE_[A-Z_]*(SECRET|SERVICE_ROLE|PRIVATE|SK_LIVE|SK_PROJ|SK_ANT)\s*[=:]\s*["']?[A-Za-z0-9._\-]{10,}'''
+severity = "critical"
+tags = ["vite", "frontend", "vibe-coding"]
+
+[[rules]]
+id = "next-public-secret"
+description = "Variable NEXT_PUBLIC_ exponiendo secret — accesible desde el navegador"
+regex = '''(?i)NEXT_PUBLIC_[A-Z_]*(SECRET|SERVICE_ROLE|PRIVATE|SK_LIVE)\s*[=:]\s*["']?[A-Za-z0-9._\-]{10,}'''
+severity = "critical"
+tags = ["nextjs", "frontend", "vibe-coding"]
+
+# ─────────────────────────────────────────────────────────────
+# ALLOWLIST GLOBAL — evita falsos positivos en el propio toolkit
+# ─────────────────────────────────────────────────────────────
+
+[allowlist]
+description = "Exclusiones globales para el VibeCoding Security Toolkit"
+paths = [
+  # Archivos del propio toolkit (contienen ejemplos de patrones, no secretos reales)
+  "vibe-security-toolkit/ci_secret_check.py",
+  "vibe-security-toolkit/github_secrets_dorks.py",
+  "vibe-security-toolkit/osint_scanner.py",
+  "vibe-security-toolkit/report_generator.py",
+  "vibe-security-toolkit/README.md",
+  ".gitleaks.toml",
+  # Archivos de ejemplo y documentación
+  ".env.example",
+  ".env.sample",
+  "*.example",
+  "demo_output/",
+]
+regexes = [
+  # Valores de ejemplo comunes en documentación
+  '''your[-_]?api[-_]?key''',
+  '''YOUR_API_KEY''',
+  '''API_KEY_HERE''',
+  '''<API_KEY>''',
+  '''sk_live_XXXX''',
+  '''sk_test_XXXX''',
+  '''example[-_]?secret''',
+  '''placeholder''',
+  '''REPLACE[-_]?ME''',
+  # Comentarios explicativos (# o //)
+  '''#.*service_role''',
+  '''\/\/.*service_role''',
+]
